@@ -8,6 +8,7 @@ Created on Fri Mar 16 14:43:17 2018
 
 import numpy as np
 import scipy as sp
+import scipy.io as spio
 import os
 from keras.datasets import mnist
 
@@ -33,7 +34,7 @@ def get_pairwise_index(dataset_name='mnist',repo='data', train=True):
     i2=np.zeros((0))
 
     for i in range(nmax):
-        data=sp.io.loadmat(tmp_filename+'{}.mat'.format(i))
+        data=spio.loadmat(tmp_filename+'{}.mat'.format(i))
         iss=data['is'].ravel()
         it=data['it'].ravel()
         D=data['D'].ravel()
