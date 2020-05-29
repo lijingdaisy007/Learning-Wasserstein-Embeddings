@@ -1,17 +1,22 @@
-#!/usr/bin/env python2
+#!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
 Created on Fri Mar 16 10:59:48 2018
 
 @author: mducoffe, rflammary, ncourty
 """
+import os
+os.environ["CUDA_DEVICE_ORDER"]="PCI_BUS_ID";
+os.environ["CUDA_VISIBLE_DEVICES"]="2";  
+
+import tensorflow as tf
 from keras import backend as K
 from keras.models import Sequential,Model
 from keras.layers import Dense, Activation
 from keras.layers import Flatten, Reshape
 from keras.layers import Conv2D
 from keras.layers import Input, Lambda
-from keras.callbacks import ModelCheckpoint,EarlyStopping
+from keras.callbacks import ModelCheckpoint,EarlyStopping, TensorBoard
 from dataset import get_data, MNIST, REPO
 
 MODEL='models'
@@ -88,12 +93,21 @@ def train_DWE(dataset_name=MNIST, repo=REPO, embedding_size=50, image_shape=(28,
     train, valid, test=get_data(dataset_name, repo)
     dict_models=build_model(image_shape, embedding_size)
     
+    if not os.path.exists('models'):
+        os.makedirs('models')
+    
+    
     model = dict_models['dwe']
     
     n_train=len(train[0])
     steps_per_epoch=int(n_train/batch_size)
     earlystop=EarlyStopping(monitor='val_loss', patience=3, verbose=1, mode='auto')
-    saveweights=ModelCheckpoint('{}/{}_autoencoder'.format(MODEL,dataset_name), monitor='val_loss', verbose=0, save_best_only=True, mode='auto')
+    tb_callback = TensorBoard(log_dir='.logs', histogram_freq=1, batch_size=batch_size, write_graph=True,
+                                                 write_grads=False,
+                                                 write_images=True, embeddings_freq=0, embeddings_layer_names=True,
+                                                 embeddings_metadata=None, embeddings_data=None, update_freq='epoch')
+    model_path = os.path.join(MODEL, dataset_name + "_autoencoder.hd5")
+    saveweights=ModelCheckpoint(model_path, monitor='val_loss', verbose=0, save_best_only=True, mode='auto')
 
     validation_data=([valid[0],valid[1]],[valid[2], valid[0], valid[1], valid[0], valid[1]])
     test_data=([test[0],test[1]],[test[2], test[0], test[1], test[0], test[1]])
@@ -108,14 +122,15 @@ def train_DWE(dataset_name=MNIST, repo=REPO, embedding_size=50, image_shape=(28,
                 
     model.fit_generator(myGenerator(),steps_per_epoch,
            epochs,validation_data=validation_data,
-           callbacks=[earlystop, saveweights])
+           callbacks=[earlystop, saveweights,tb_callback])
     
     model.evaluate(test_data[0], test_data[1])
     
     for key in dict_models:
         dict_models[key].save('{}/{}_{}.hd5'.format(MODEL, dataset_name, key))
 
-#%%    
+
+#%%
 if __name__=="__main__":
     import argparse
     parser = argparse.ArgumentParser(description='Dataset')
@@ -124,6 +139,7 @@ if __name__=="__main__":
     parser.add_argument('--embedding_size', type=int, default=50, help='embedding size')
     parser.add_argument('--batch_size', type=int, default=10)
     parser.add_argument('--epochs', type=int, default=1)
+    parser.add_argument('--image_size', type=int, default=28)
     
     
     args = parser.parse_args()                                                                                                                                                                                                                             
@@ -132,5 +148,7 @@ if __name__=="__main__":
     embedding_size=args.embedding_size
     batch_size=args.batch_size
     epochs=args.epochs
+    image_size=args.image_size
     
-    train_DWE(dataset_name, repo, embedding_size, batch_size=batch_size, epochs=epochs)
+    train_DWE(dataset_name, repo, embedding_size, batch_size=batch_size, epochs=epochs, image_shape=(image_size,image_size))
+    
